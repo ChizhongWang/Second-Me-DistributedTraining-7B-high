@@ -98,7 +98,7 @@ class PreferenceQAGenerator:
         self.prompt_templates = self._get_prompt_templates(preference_language)
         self.sys_templates = self._get_sys_templates(preference_language)
         self.max_workers = 1
-        self.data_synthesis_mode = os.environ.get("DATA_SYNTHESIS_MODE", "low")
+        self.data_synthesis_mode = os.environ.get("DATA_SYNTHESIS_MODE", "high")
 
 
     def generate_response(self, sys: str, prompt: str) -> str:
@@ -221,7 +221,7 @@ class PreferenceQAGenerator:
         cluster_items = list(self.pre_msg.items())
         count = 0
         
-        if self.data_synthesis_mode == "low":
+        if self.data_synthesis_mode == "high":
             sample_num = max(1, len(cluster_items) // LowMode.cluster_nums.value) if 0 < len(cluster_items) < 3 else len(cluster_items) // LowMode.cluster_nums.value
             new_cluster_items = random.sample(cluster_items, sample_num)
         elif self.data_synthesis_mode == "medium":

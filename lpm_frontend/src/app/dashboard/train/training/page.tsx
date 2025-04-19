@@ -43,16 +43,16 @@ interface TrainingDetail {
 
 const baseModelOptions = [
   {
-    value: 'Qwen2.5-0.5B-Instruct',
-    label: 'Qwen2.5-0.5B-Instruct (8GB+ RAM Recommended)'
+    value: 'Qwen2.5-7B-Instruct',
+    label: 'Qwen2.5-7B-Instruct (8GB+ RAM Recommended)'
   },
   {
-    value: 'Qwen2.5-1.5B-Instruct',
-    label: 'Qwen2.5-1.5B-Instruct (16GB+ RAM Recommended)'
+    value: 'Qwen2.5-7B-Instruct',
+    label: 'Qwen2.5-7B-Instruct (16GB+ RAM Recommended)'
   },
   {
-    value: 'Qwen2.5-3B-Instruct',
-    label: 'Qwen2.5-3B-Instruct (32GB+ RAM Recommended)'
+    value: 'Qwen2.5-7B-Instruct',
+    label: 'Qwen2.5-7B-Instruct (32GB+ RAM Recommended)'
   },
   {
     value: 'Qwen2.5-7B-Instruct',

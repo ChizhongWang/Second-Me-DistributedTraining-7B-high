@@ -160,7 +160,7 @@ export function ModelStatus() {
         });
     } else {
       setServiceStarting(true);
-      startService({ model_name: config.baseModel || 'Qwen2.5-0.5B-Instruct' })
+      startService({ model_name: config.baseModel || 'Qwen2.5-7B-Instruct' })
         .then((res) => {
           if (res.data.code === 0) {
             messageApi.success({ content: 'Service starting...', duration: 1 });

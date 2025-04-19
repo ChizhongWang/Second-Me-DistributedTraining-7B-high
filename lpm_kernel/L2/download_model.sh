@@ -1,1 +1,1 @@
-python lpm_kernel/L2/utils.py Qwen2.5-0.5B-Instruct
+python lpm_kernel/L2/utils.py Qwen2.5-7B-Instruct

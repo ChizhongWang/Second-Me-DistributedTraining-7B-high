@@ -16,6 +16,7 @@ import torch.amp
 import datasets
 import psutil
 import torch.multiprocessing as mp
+import torch.distributed as dist
 import transformers
 from peft import LoraConfig
 from tqdm import tqdm
@@ -207,26 +208,39 @@ def main(model_args, data_args, training_args):
         if hasattr(torch, "set_num_interop_threads"):
             torch.set_num_interop_threads(num_cores)
         
-        # Enable memory-optimized garbage collection
-        # import gc
-        # gc.enable()
-        
-        # # Monitor memory usage and clean up periodically
-        # def schedule_gc():
-        #     gc.collect()
-        #     torch.cuda.empty_cache() if torch.cuda.is_available() else None
-        #     return schedule_gc
-        
         # If CUDA is available, set CUDA device
         if torch.cuda.is_available():
-            torch.cuda.set_device(0)
-            logger.info(f"CUDA is available. Using device: {torch.cuda.get_device_name(0)}")
-            # Display CUDA memory information
-            logger.info(f"CUDA memory allocated: {torch.cuda.memory_allocated(0) / 1024**2:.2f} MB")
-            logger.info(f"CUDA memory reserved: {torch.cuda.memory_reserved(0) / 1024**2:.2f} MB")
+            # Get number of available GPUs
+            num_gpus = torch.cuda.device_count()
+            logger.info(f"CUDA is available. Found {num_gpus} GPUs")
+            
+            # Log information about each GPU
+            for i in range(num_gpus):
+                logger.info(f"GPU {i}: {torch.cuda.get_device_name(i)}")
+                logger.info(f"  Memory allocated: {torch.cuda.memory_allocated(i) / 1024**2:.2f} MB")
+                logger.info(f"  Memory reserved: {torch.cuda.memory_reserved(i) / 1024**2:.2f} MB")
+            
+            # If using distributed training, the device will be set by the distributed launcher
+            if training_args.local_rank != -1:
+                logger.info(f"Using GPU {training_args.local_rank} for this process in distributed training")
+                torch.cuda.set_device(training_args.local_rank)
+            else:
+                logger.info("Using GPU 0 (no distributed training)")
+                torch.cuda.set_device(0)
+                logger.info(f"CUDA is available. Using device: {torch.cuda.get_device_name(0)}")
+                # Display CUDA memory information
+                logger.info(f"CUDA memory allocated: {torch.cuda.memory_allocated(0) / 1024**2:.2f} MB")
+                logger.info(f"CUDA memory reserved: {torch.cuda.memory_reserved(0) / 1024**2:.2f} MB")
     
     # Call function to configure system resources
     configure_system_resources()
+    
+    # Initialize distributed training if needed
+    if training_args.local_rank != -1:
+        logger.info(f"Initializing distributed training with local_rank: {training_args.local_rank}")
+        if not dist.is_initialized():
+            dist.init_process_group(backend="nccl")
+        logger.info(f"Distributed training initialized. World size: {dist.get_world_size()}, Rank: {dist.get_rank()}")
 
     # datasets
     train_dataset = create_chat_data(
@@ -234,7 +248,7 @@ def main(model_args, data_args, training_args):
         tokenizer,
     )
 
-    response_template = "\n<|im_start|>assistant\n"
+    response_template = "\n\nassistant\n"
 
     collator = DataCollatorForCompletionOnlyLM(response_template, tokenizer=tokenizer)
     

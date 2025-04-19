@@ -66,7 +66,7 @@ class DiversityDataGenerator:
             )
         self.preference_language = preference_language
         self.max_workers = os.environ.get("concurrency_threads", 2)
-        self.data_synthesis_mode = os.environ.get("DATA_SYNTHESIS_MODE", "low")
+        self.data_synthesis_mode = os.environ.get("DATA_SYNTHESIS_MODE", "high")
         self.is_cot = is_cot
         if self.is_cot:
             logger.info("generate diversity data in longcot pattern!!!")

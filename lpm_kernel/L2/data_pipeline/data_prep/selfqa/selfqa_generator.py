@@ -81,7 +81,7 @@ class SelfQA:
                 base_url=user_llm_config.chat_endpoint,
             )
         self.max_workers = os.environ.get("concurrency_threads", 2)
-        self.data_synthesis_mode = os.environ.get("DATA_SYNTHESIS_MODE", "low")
+        self.data_synthesis_mode = os.environ.get("DATA_SYNTHESIS_MODE", "high")
         if self.is_cot:
             logger.info("generate selfQA data in longcot pattern!!!")
             self.env_path = os.path.join(os.getcwd(), "lpm_kernel/L2/.env")

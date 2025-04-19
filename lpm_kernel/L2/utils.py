@@ -343,11 +343,11 @@ def setup_logger(log_path, logger_name="download_logger"):
     return logger
 
 
-def save_hf_model(model_name="Qwen2.5-0.5B-Instruct", log_file_path=None) -> str:
+def save_hf_model(model_name="Qwen2.5-7B-Instruct", log_file_path=None) -> str:
     """Saves a Hugging Face model locally.
     
     Args:
-        model_name: Name of the model to save. Defaults to "Qwen2.5-0.5B-Instruct".
+        model_name: Name of the model to save. Defaults to "Qwen2.5-7B-Instruct".
         log_file_path: Path to save download logs. If None, uses default path.
         
     Returns:
