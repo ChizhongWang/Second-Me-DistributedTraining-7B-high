@@ -1,3 +1,7 @@
+[[tool.poetry.source]]
+name = "tencent"
+url = "https://mirrors.cloud.tencent.com/pypi/simple"
+
 [tool.poetry]
 name = "lpm_kernel"
 version = "0.1.0"
