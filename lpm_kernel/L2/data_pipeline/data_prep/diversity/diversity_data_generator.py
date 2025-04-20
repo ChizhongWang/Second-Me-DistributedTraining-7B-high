@@ -15,6 +15,7 @@ from lpm_kernel.api.services.user_llm_config_service import UserLLMConfigService
 from lpm_kernel.configs.config import Config
 from lpm_kernel.L2.data_pipeline.data_prep.diversity.utils import remove_similar_dicts
 import lpm_kernel.L2.data_pipeline.data_prep.diversity.template_diversity as template_diversity
+from .token_utils import count_tokens
 
 from lpm_kernel.configs.logging import get_train_process_logger
 logger = get_train_process_logger()
@@ -162,51 +163,13 @@ class DiversityDataGenerator:
         return entity2desc, entity2type, QA_config
 
 
-    def _get_A_input(self, cluster: dict, question: str, user_name: str) -> str:
-        """Generate the input for answer generation.
-        
-        Args:
-            cluster: The data cluster containing entity information.
-            question: The question to be answered.
-            user_name: Name of the user.
-            
-        Returns:
-            A string containing the formatted input for the answer generation model.
-        """
-        entity = cluster["entity_name"]
-        entity_desc = cluster["entity_description"]
-        entity_desc = f"Entity'{entity}',Relevant Info：'{entity_desc}'"
-
-        tmpl = f"""I am {user_name}. Regarding {entity_desc}, here is some information I previously mentioned:\n\n"""
-
-        chunk_tmpl = ""
-        for ind, entity_dict in enumerate(cluster["note"]):
-            if "processed" in entity_dict:
-                content = entity_dict["processed"]
-            else:
-                content = entity_dict["content"]
-                title = entity_dict["title"]
-                insight = entity_dict["insight"]
-                content = f"Title: {title}\nContent: {content}\nAI Insight: {insight}"
-
-            tmp = f"___________________\n{content}\n"
-            chunk_tmpl += tmp
-
-        tmpl = (
-            tmpl
-            + chunk_tmpl
-            + f"Based on the information I have previously recorded, please answer '{question}'. Note that you need to ensure the perspective is consistent, meaning that all instances of {user_name} should be replaced with the second person 'you'."
-        )
-
-        return tmpl
-
-
-    def _get_Q_input(self, cluster: dict, user_name: str) -> str:
+    def _get_Q_input(self, cluster: dict, user_name: str, max_token_limit: int = 120000) -> str:
         """Generate the input for question generation.
         
         Args:
             cluster: The data cluster containing entity information.
             user_name: Name of the user.
+            max_token_limit: Maximum token limit for the input.
             
         Returns:
             A string containing the formatted input for the question generation model.
@@ -214,22 +177,60 @@ class DiversityDataGenerator:
         entity = cluster["entity_name"]
         entity_desc = cluster["entity_description"]
         entity_desc = f"Entity'{entity}'：{entity_desc}"
-        tmpl = f""""For {entity_desc}, here is the relevant content from my interactions with the AI robot:\n"""
+        tmpl = f"For {entity_desc}, here is the relevant content from my interactions with the AI robot:\n"
         chunk_tmpl = ""
+        total_tokens = count_tokens(tmpl)
         for ind, entity_dict in enumerate(cluster["note"]):
             content = entity_dict["content"]
             title = entity_dict["title"]
             insight = entity_dict["insight"]
-            content = f"Title: {title}\nContent: {content}\nAI Insight: {insight}"
-
-            tmp = f"# Content {ind+1} #\n{content}\n"
-            chunk_tmpl += tmp
+            note_str = f"# Content {ind+1} #\nTitle: {title}\nContent: {content}\nAI Insight: {insight}\n"
+            note_tokens = count_tokens(note_str)
+            if total_tokens + note_tokens > max_token_limit:
+                break
+            chunk_tmpl += note_str
+            total_tokens += note_tokens
         tmpl = (
             tmpl
             + chunk_tmpl
             + f"Please help me generate questions; note that you need to phrase them from my perspective, meaning all expressions of {user_name} should be replaced with the first person 'I'."
         )
+        return tmpl
 
+
+    def _get_A_input(self, cluster: dict, question: str, user_name: str, max_token_limit: int = 120000) -> str:
+        """Generate the input for answer generation.
+        
+        Args:
+            cluster: The data cluster containing entity information.
+            question: The question to be answered.
+            user_name: Name of the user.
+            max_token_limit: Maximum token limit for the input.
+            
+        Returns:
+            A string containing the formatted input for the answer generation model.
+        """
+        entity = cluster["entity_name"]
+        entity_desc = cluster["entity_description"]
+        entity_desc = f"Entity'{entity}',Relevant Info：'{entity_desc}'"
+        tmpl = f"For {entity_desc}, here is the relevant content from my interactions with the AI robot:\n"
+        chunk_tmpl = ""
+        total_tokens = count_tokens(tmpl)
+        for ind, entity_dict in enumerate(cluster["note"]):
+            content = entity_dict["content"]
+            title = entity_dict["title"]
+            insight = entity_dict["insight"]
+            note_str = f"___________________\nTitle: {title}\nContent: {content}\nAI Insight: {insight}\n"
+            note_tokens = count_tokens(note_str)
+            if total_tokens + note_tokens > max_token_limit:
+                break
+            chunk_tmpl += note_str
+            total_tokens += note_tokens
+        tmpl = (
+            tmpl
+            + chunk_tmpl
+            + f"Based on the information I have previously recorded, please answer '{question}'. Note that you need to ensure the perspective is consistent, meaning that all instances of {user_name} should be replaced with the second person 'you'."
+        )
         return tmpl
 
 
@@ -546,9 +547,13 @@ class DiversityDataGenerator:
             Tuple of (answer_text, answer_type).
         """
         user_input = self._get_A_input(cluster, question, user_name)
-        system_prompt, answer_type = templater.get_A_template(question_type)
         messages = [
-            {"role": "system", "content": system_prompt},
+            {
+                "role": "system",
+                "content": templater.get_A_template(
+                    answer_type_prompt=templater.a_dict[question_type]["prompt"]
+                ),
+            },
             {"role": "user", "content": user_input + language_desc},
         ]
         try:
@@ -563,5 +568,6 @@ class DiversityDataGenerator:
                 res = response.choices[0].message.content
         except Exception as e:
             logging.error(traceback.format_exc())
-            
+            res = ""
+        answer_type = question_type  # 或根据实际逻辑调整
         return res, answer_type
